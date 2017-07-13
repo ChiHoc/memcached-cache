@@ -72,6 +72,11 @@ final class MemcachedConfiguration {
   private TimeUnit timeUnit;
 
   /**
+   * The Memcached enabled flag.
+   */
+  private boolean enabled;
+
+  /**
    * @return the keyPrefix
    */
   public String getKeyPrefix() {
@@ -181,6 +186,22 @@ final class MemcachedConfiguration {
    */
   public void setTimeUnit(TimeUnit timeUnit) {
     this.timeUnit = timeUnit;
+  }
+
+  /**
+   *
+   * @return The Memcached enabled flag.
+   */
+  public boolean isEnabled() {
+    return enabled;
+  }
+
+  /**
+   *
+   * @param enabled The Memcached enabled flag.
+   */
+  public void setEnabled(boolean enabled) {
+    this.enabled = enabled;
   }
 
   /**

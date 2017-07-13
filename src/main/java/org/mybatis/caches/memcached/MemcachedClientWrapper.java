@@ -47,7 +47,7 @@ final class MemcachedClientWrapper {
 
   /**
    * Used to represent an object retrieved from Memcached along with its CAS information
-   * 
+   *
    * @author Weisz, Gustavo E.
    */
   private class ObjectWithCas {
@@ -95,7 +95,7 @@ final class MemcachedClientWrapper {
 
   /**
    * Converts the MyBatis object key in the proper string representation.
-   * 
+   *
    * @param key the MyBatis object key.
    * @return the proper string representation.
    */
@@ -114,14 +114,17 @@ final class MemcachedClientWrapper {
    * @return
    */
   public Object getObject(Object key) {
-    String keyString = toKeyString(key);
-    Object ret = retrieve(keyString);
+    if (configuration.isEnabled()) {
+      String keyString = toKeyString(key);
+      Object ret = retrieve(keyString);
 
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Retrived object (" + keyString + ", " + ret + ")");
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Retrived object (" + keyString + ", " + ret + ")");
+      }
+
+      return ret;
     }
-
-    return ret;
+    return null;
   }
 
   /**
@@ -194,7 +197,7 @@ final class MemcachedClientWrapper {
 
   /**
    * Retrieves an object along with its cas using the given key
-   * 
+   *
    * @param keyString
    * @return
    * @throws Exception
@@ -233,37 +236,39 @@ final class MemcachedClientWrapper {
 
   @SuppressWarnings("unchecked")
   public void putObject(Object key, Object value, String id) {
-    String keyString = toKeyString(key);
-    String groupKey = toKeyString(id);
+    if (configuration.isEnabled()) {
+      String keyString = toKeyString(key);
+      String groupKey = toKeyString(id);
 
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Putting object (" + keyString + ", " + value + ")");
-    }
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Putting object (" + keyString + ", " + value + ")");
+      }
 
-    storeInMemcached(keyString, value);
+      storeInMemcached(keyString, value);
 
-    // add namespace key into memcached
-    // Optimistic lock approach...
-    boolean jobDone = false;
+      // add namespace key into memcached
+      // Optimistic lock approach...
+      boolean jobDone = false;
 
-    while (!jobDone) {
-      ObjectWithCas group = getGroup(groupKey);
-      Set<String> groupValues;
+      while (!jobDone) {
+        ObjectWithCas group = getGroup(groupKey);
+        Set<String> groupValues;
 
-      if (group == null || group.getObject() == null) {
-        groupValues = new HashSet<String>();
-        groupValues.add(keyString);
+        if (group == null || group.getObject() == null) {
+          groupValues = new HashSet<String>();
+          groupValues.add(keyString);
 
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Insert/Updating object (" + groupKey + ", " + groupValues + ")");
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Insert/Updating object (" + groupKey + ", " + groupValues + ")");
+          }
+
+          jobDone = tryToAdd(groupKey, groupValues);
+        } else {
+          groupValues = (Set<String>) group.getObject();
+          groupValues.add(keyString);
+
+          jobDone = storeInMemcached(groupKey, group);
         }
-
-        jobDone = tryToAdd(groupKey, groupValues);
-      } else {
-        groupValues = (Set<String>) group.getObject();
-        groupValues.add(keyString);
-
-        jobDone = storeInMemcached(groupKey, group);
       }
     }
   }
@@ -289,9 +294,9 @@ final class MemcachedClientWrapper {
 
   /**
    * Tries to update an object value in memcached considering the cas validation
-   * 
+   *
    * Returns true if the object passed the cas validation and was modified.
-   * 
+   *
    * @param keyString
    * @param value
    * @return
@@ -316,9 +321,9 @@ final class MemcachedClientWrapper {
 
   /**
    * Tries to store an object identified by a key in Memcached.
-   * 
+   *
    * Will fail if the object already exists.
-   * 
+   *
    * @param keyString
    * @param value
    * @return
@@ -350,48 +355,53 @@ final class MemcachedClientWrapper {
   }
 
   public Object removeObject(Object key) {
-    String keyString = toKeyString(key);
+    if (configuration.isEnabled()) {
+      String keyString = toKeyString(key);
 
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Removing object '" + keyString + "'");
-    }
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Removing object '" + keyString + "'");
+      }
 
-    Object result = getObject(key);
-    if (result != null) {
-      client.delete(keyString);
+      Object result = getObject(key);
+      if (result != null) {
+        client.delete(keyString);
+      }
+      return result;
     }
-    return result;
+    return null;
   }
 
   @SuppressWarnings("unchecked")
   public void removeGroup(String id) {
-    String groupKey = toKeyString(id);
+    if (configuration.isEnabled()) {
+      String groupKey = toKeyString(id);
 
-    ObjectWithCas group = getGroup(groupKey);
-    Set<String> groupValues;
+      ObjectWithCas group = getGroup(groupKey);
+      Set<String> groupValues;
 
-    if (group == null || group.getObject() == null) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("No need to flush cached entries for group '" + id + "' because is empty");
+      if (group == null || group.getObject() == null) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("No need to flush cached entries for group '" + id + "' because is empty");
+        }
+        return;
       }
-      return;
+
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Flushing keys: " + group);
+      }
+
+      groupValues = (Set<String>) group.getObject();
+
+      for (String key : groupValues) {
+        client.delete(key);
+      }
+
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Flushing group: " + groupKey);
+      }
+
+      client.delete(groupKey);
     }
-
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Flushing keys: " + group);
-    }
-
-    groupValues = (Set<String>) group.getObject();
-
-    for (String key : groupValues) {
-      client.delete(key);
-    }
-
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Flushing group: " + groupKey);
-    }
-
-    client.delete(groupKey);
   }
 
   @Override

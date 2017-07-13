@@ -38,6 +38,9 @@ final class BooleanPropertySetter extends AbstractPropertySetter<Boolean> {
    */
   @Override
   protected Boolean convert(String property) throws Exception {
+    if (property == null) {
+      return null;
+    }
     return Boolean.valueOf(property);
   }
 
