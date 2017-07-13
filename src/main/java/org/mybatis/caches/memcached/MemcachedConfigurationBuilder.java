@@ -63,7 +63,7 @@ final class MemcachedConfigurationBuilder {
     settersRegistry.add(new BooleanPropertySetter("org.mybatis.caches.memcached.asyncget", "usingAsyncGet", false));
     settersRegistry
         .add(new BooleanPropertySetter("org.mybatis.caches.memcached.compression", "compressionEnabled", false));
-    settersRegistry.add(new BooleanPropertySetter("org.mybatis.caches.memcached.enable", "enabled", true));
+    settersRegistry.add(new BooleanPropertySetter("org.mybatis.caches.memcached.enabled", "enabled", true));
 
     settersRegistry.add(new InetSocketAddressListPropertySetter());
     settersRegistry.add(new ConnectionFactorySetter());
