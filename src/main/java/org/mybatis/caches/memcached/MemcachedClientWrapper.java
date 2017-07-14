@@ -80,16 +80,20 @@ final class MemcachedClientWrapper {
 
   public MemcachedClientWrapper() {
     configuration = MemcachedConfigurationBuilder.getInstance().parseConfiguration();
-    try {
-      client = new MemcachedClient(configuration.getConnectionFactory(), configuration.getAddresses());
-    } catch (IOException e) {
-      String message = "Impossible to instantiate a new memecached client instance, see nested exceptions";
-      LOG.error(message, e);
-      throw new RuntimeException(message, e);
-    }
+    if (configuration.isEnabled()) {
+      try {
+        client = new MemcachedClient(configuration.getConnectionFactory(), configuration.getAddresses());
+      } catch (IOException e) {
+        String message = "Impossible to instantiate a new memecached client instance, see nested exceptions";
+        LOG.error(message, e);
+        throw new RuntimeException(message, e);
+      }
 
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Running new Memcached client using " + configuration);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Running new Memcached client using " + configuration);
+      }
+    } else {
+      client = null;
     }
   }
 
